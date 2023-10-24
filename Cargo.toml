@@ -9,6 +9,14 @@ homepage = "https://github.com/Easyoakland/yap_streaming"
 license = "MIT"
 categories = ["parsing"]
 
+include = [
+  "Cargo.toml",
+  "LICENSE",
+  "README.md",
+  "src/**/*",
+  "examples/fizzbuzz.rs"
+]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -21,3 +29,4 @@ alloc = []
 [[example]]
 name = "fizzbuzz"
 required-features = ["alloc"]
+path = "examples/fizzbuzz.rs"
