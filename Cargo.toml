@@ -1,0 +1,23 @@
+[package]
+name = "yap_streaming"
+version = "0.1.0"
+edition = "2021"
+authors = ["Easyoakland <97992568+Easyoakland@users.noreply.github.com>"]
+description = "Yap extension crate for parsing streams"
+repository = "https://github.com/Easyoakland/yap_streaming"
+homepage = "https://github.com/Easyoakland/yap_streaming"
+license = "MIT"
+categories = ["parsing"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+yap = "0.11.0"
+
+[features]
+default = ["alloc"]
+alloc = []
+
+[[example]]
+name = "fizzbuzz"
+required-features = ["alloc"]
