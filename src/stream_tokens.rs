@@ -7,8 +7,6 @@ use yap::{IntoTokens, TokenLocation, Tokens};
 struct Buffer<Item> {
     oldest_elem_id: usize,
     elements: VecDeque<Option<Item>>,
-    /// Sorted list of the oldest items needed per location
-    checkout: Vec<usize>,
 }
 
 // Manual impl because Item: !Default also works.
@@ -17,7 +15,6 @@ impl<Item> Default for Buffer<Item> {
         Self {
             oldest_elem_id: Default::default(),
             elements: Default::default(),
-            checkout: Default::default(),
         }
     }
 }
@@ -31,8 +28,10 @@ where
 {
     iter: I,
     cursor: usize,
-    /// Shared buffer of items and the id of the oldest item in the buffer.
-    buffer: Rc<RefCell<Buffer<I::Item>>>,
+    /// Buffer of items and the id of the oldest item in the buffer.
+    buffer: Buffer<I::Item>,
+    /// Sorted list of the oldest items needed per location
+    checkout: Rc<RefCell<Vec<usize>>>,
 }
 
 /// This implements [`TokenLocation`] and stores the location. It also marks the [`Iterator::Item`]s
@@ -43,47 +42,46 @@ where
 /// The [`Drop`] implementation will un-mark that [`Iterator::Item`]s must be stored,
 /// allowing the originating [`StreamTokens`] to drop old values and free memory.
 #[derive(Debug)]
-pub struct StreamTokensLocation<Item> {
+pub struct StreamTokensLocation {
     cursor: usize,
-    buffer: Rc<RefCell<Buffer<Item>>>,
+    checkout: Rc<RefCell<Vec<usize>>>,
 }
 
-impl<Item> Clone for StreamTokensLocation<Item> {
+impl Clone for StreamTokensLocation {
     fn clone(&self) -> Self {
         // Checkout the cursor's position again
-        let mut buf = self.buffer.borrow_mut();
-        let idx = match buf.checkout.binary_search(&self.cursor) {
+        let mut checkout = self.checkout.borrow_mut();
+        let idx = match checkout.binary_search(&self.cursor) {
             Ok(x) | Err(x) => x,
         };
-        buf.checkout.insert(idx, self.cursor);
+        checkout.insert(idx, self.cursor);
         // Then copy
         Self {
             cursor: self.cursor,
-            buffer: self.buffer.clone(),
+            checkout: Rc::clone(&self.checkout),
         }
     }
 }
 
-impl<Item> PartialEq for StreamTokensLocation<Item> {
+impl PartialEq for StreamTokensLocation {
     fn eq(&self, other: &Self) -> bool {
         self.cursor == other.cursor
     }
 }
-impl<Item> Eq for StreamTokensLocation<Item> {}
+impl Eq for StreamTokensLocation {}
 
-impl<Item> Drop for StreamTokensLocation<Item> {
+impl Drop for StreamTokensLocation {
     fn drop(&mut self) {
-        let mut buf = self.buffer.borrow_mut();
+        let mut checkout = self.checkout.borrow_mut();
         // Remove self.cursor from checkout.
-        let idx = buf
-            .checkout
+        let idx = checkout
             .binary_search(&self.cursor)
             .expect("missing entry for location in checkout");
-        buf.checkout.remove(idx);
+        checkout.remove(idx);
     }
 }
 
-impl<Item> TokenLocation for StreamTokensLocation<Item> {
+impl TokenLocation for StreamTokensLocation {
     fn offset(&self) -> usize {
         self.cursor
     }
@@ -119,6 +117,7 @@ where
             iter,
             cursor: Default::default(),
             buffer: Default::default(),
+            checkout: Default::default(),
         }
     }
 }
@@ -130,35 +129,35 @@ where
 {
     type Item = I::Item;
 
-    type Location = StreamTokensLocation<I::Item>;
+    type Location = StreamTokensLocation;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.cursor += 1;
 
-        let mut buf = self.buffer.borrow_mut();
-
         // Try buffer
         {
             // If buffer has needed element use buffer before getting new elements.
-            if let Some(val) = buf
+            if let Some(val) = self
+                .buffer
                 .elements
-                .get(self.cursor - 1 - buf.oldest_elem_id)
+                .get(self.cursor - 1 - self.buffer.oldest_elem_id)
                 .cloned()
             {
                 return val;
             }
         }
 
+        let checkout = self.checkout.borrow();
         // Clear buffer of old values
         {
             // Remove old values no longer needed by any location
-            let min = match buf.checkout.first() {
+            let min = match checkout.first() {
                 Some(&x) => x.min(self.cursor),
                 None => self.cursor,
             };
-            while (buf.oldest_elem_id < min) && (!buf.elements.is_empty()) {
-                buf.elements.pop_front();
-                buf.oldest_elem_id += 1;
+            while (self.buffer.oldest_elem_id < min) && (!self.buffer.elements.is_empty()) {
+                self.buffer.elements.pop_front();
+                self.buffer.oldest_elem_id += 1;
             }
         }
 
@@ -166,10 +165,10 @@ where
         {
             let next = self.iter.next();
             // Don't save to buffer if no locations exist which might need the value again
-            if buf.checkout.is_empty() {
+            if checkout.is_empty() {
                 next
             } else {
-                buf.elements.push_back(next.clone());
+                self.buffer.elements.push_back(next.clone());
                 next
             }
         }
@@ -177,13 +176,13 @@ where
 
     fn location(&self) -> Self::Location {
         // Checkout value at current location
-        let mut buf = self.buffer.borrow_mut();
-        match buf.checkout.binary_search(&self.cursor) {
-            Ok(x) | Err(x) => buf.checkout.insert(x, self.cursor),
+        let mut checkout = self.checkout.borrow_mut();
+        match checkout.binary_search(&self.cursor) {
+            Ok(x) | Err(x) => checkout.insert(x, self.cursor),
         };
         StreamTokensLocation {
             cursor: self.cursor,
-            buffer: Rc::clone(&self.buffer),
+            checkout: Rc::clone(&self.checkout),
         }
     }
 
