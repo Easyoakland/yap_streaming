@@ -231,6 +231,44 @@ mod tests {
         assert!(tokens.tokens("world".chars()));
 
         tokens.set_location(loc);
+        assert!(tokens.tokens("hello \n\t world".chars()));
+
+        assert_eq!(None, tokens.next())
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn non_fused() {
+        let mut it1 = "hello".chars();
+        let mut it2 = "world".chars();
+        let mut once = true;
+        let it = core::iter::from_fn(|| {
+            if let Some(x) = it1.next() {
+                Some(x)
+            } else if once {
+                once = false;
+                None
+            } else if let Some(x) = it2.next() {
+                Some(x)
+            } else {
+                None
+            }
+        });
+        let mut tokens = StreamTokens::into_tokens(it);
         assert!(tokens.tokens("hello".chars()));
+
+        let none_next = tokens.location();
+        assert_eq!(tokens.next(), None);
+        assert!(tokens.tokens("world".chars()));
+        assert_eq!(tokens.next(), None);
+        assert_eq!(tokens.next(), None);
+        assert_eq!(tokens.next(), None);
+
+        tokens.set_location(none_next);
+        assert_eq!(tokens.next(), None);
+        assert!(tokens.tokens("world".chars()));
+        assert_eq!(tokens.next(), None);
+        assert_eq!(tokens.next(), None);
+        assert_eq!(tokens.next(), None);
     }
 }
