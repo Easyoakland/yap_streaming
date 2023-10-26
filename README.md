@@ -1,4 +1,4 @@
-This crate builds on the interfaces from [`yap`](crates.io/crates/yap) to allow simple parsing of streams.
+This crate builds on the interfaces from [`yap`](https://crates.io/crates/yap) to allow simple parsing of streams.
 
 # Why
 
@@ -14,7 +14,7 @@ Of that list `nom`, `winnow`, `chumsky`, `combine` support parsing streams of va
 
 `combine` is complicated.
 
-This crate allows using an already written [`yap`](crates.io/crates/yap) parser by simply changing the initial tokens declaration.
+This crate allows using an already written [`yap`](https://crates.io/crates/yap) parser by simply changing the initial tokens declaration.
 
 ```rust
 # #[cfg(feature = "alloc")] {
