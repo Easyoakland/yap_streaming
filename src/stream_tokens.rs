@@ -248,10 +248,8 @@ mod tests {
             } else if once {
                 once = false;
                 None
-            } else if let Some(x) = it2.next() {
-                Some(x)
             } else {
-                None
+                it2.next()
             }
         });
         let mut tokens = StreamTokens::into_tokens(it);
