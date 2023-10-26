@@ -10,7 +10,7 @@ checksum = "ff4524214bc4629eba08d78ceb1d6507070cc0bcbbed23af74e19e6e924a24cf"
 
 [[package]]
 name = "yap_streaming"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "yap",
 ]

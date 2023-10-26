@@ -105,7 +105,7 @@ assert_eq!(eval(&mut tokens), 140);
 
 // Instead of parsing an in-memory buffer we can use `yap_streaming` to parse a stream.
 // While we could just [`std::io::Read::read_to_end()`] here, what if the file was too large to fit in memory?
-// What if we were parsing the input of a network socket?
+// What if we were parsing from a network socket?
 let file_bytes = BufReader::new(File::open("examples/opOrDigit.txt").unwrap())
     .bytes()
     .map_while(|x| x.ok().map(|x| x as char));
