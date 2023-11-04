@@ -57,6 +57,14 @@ jobs:
       - name: Check internal documentation links
         run: RUSTDOCFLAGS="--deny broken_intra_doc_links" cargo doc --verbose --workspace --no-deps --document-private-items
 
+      - name: Install cargo-rdme
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-rdme
+
+      - name: Check if the README is up to date.
+        run: cargo rdme --check
+
   tests:
     name: Run tests
     runs-on: ubuntu-latest
