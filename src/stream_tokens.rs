@@ -105,14 +105,14 @@ where
     /// // would be preferred here (which would give StrTokens).
     /// // This is just to demonstrate using StreamTokens:
     /// let chars_iter = "hello \n\t world".chars();
-    /// let mut tokens = StreamTokens::into_tokens(chars_iter);
+    /// let mut tokens = StreamTokens::new(chars_iter);
     ///
     /// // now we have tokens, we can do some parsing:
     /// assert!(tokens.tokens("hello".chars()));
-    /// tokens.skip_tokens_while(|c| c.is_whitespace());
+    /// tokens.skip_while(|c| c.is_whitespace());
     /// assert!(tokens.tokens("world".chars()));
     /// ```
-    pub fn into_tokens(iter: I) -> Self {
+    pub fn new(iter: I) -> Self {
         StreamTokens {
             iter,
             cursor: Default::default(),
@@ -218,7 +218,7 @@ mod tests {
         // In reality, one should always prefer to use StrTokens for strings:
         let chars: &mut dyn Iterator<Item = char> = &mut "hello \n\t world".chars();
         // Can't `chars.clone()` so:
-        let mut tokens = StreamTokens::into_tokens(chars);
+        let mut tokens = StreamTokens::new(chars);
 
         let loc = tokens.location();
         assert!(tokens.tokens("hello".chars()));
@@ -226,7 +226,7 @@ mod tests {
         tokens.set_location(loc.clone());
         assert!(tokens.tokens("hello".chars()));
 
-        tokens.skip_tokens_while(|c| c.is_whitespace());
+        tokens.skip_while(|c| c.is_whitespace());
 
         assert!(tokens.tokens("world".chars()));
 
@@ -252,7 +252,7 @@ mod tests {
                 it2.next()
             }
         });
-        let mut tokens = StreamTokens::into_tokens(it);
+        let mut tokens = StreamTokens::new(it);
         assert!(tokens.tokens("hello".chars()));
 
         let none_next = tokens.location();

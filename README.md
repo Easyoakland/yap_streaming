@@ -67,18 +67,17 @@ fn parse_op(t: &mut impl Tokens<Item = char>) -> Option<Op> {
 
 // We also get other useful functions..
 fn parse_digits(t: &mut impl Tokens<Item = char>) -> Option<u32> {
-    let s: String = t.tokens_while(|c| c.is_digit(10)).collect();
-    s.parse().ok()
+    t.take_while(|c| c.is_digit(10)).parse::<u32, String>().ok()
 }
 
-fn parse_all(t: &mut impl Tokens<Item = char>) -> impl Iterator<Item = OpOrDigit> + '_ {
+fn parse_all(t: &mut impl Tokens<Item = char>) -> impl Tokens<Item = OpOrDigit> + '_ {
     // As well as combinator functions like `sep_by_all` and `surrounded_by`..
     t.sep_by_all(
         |t| {
             t.surrounded_by(
                 |t| parse_digits(t).map(OpOrDigit::Digit),
                 |t| {
-                    t.skip_tokens_while(|c| c.is_ascii_whitespace());
+                    t.skip_while(|c| c.is_ascii_whitespace());
                 },
             )
         },
@@ -91,7 +90,7 @@ fn eval(t: &mut impl Tokens<Item = char>) -> u32 {
     let op_or_digit = parse_all(t);
     let mut current_op = Op::Plus;
     let mut current_digit = 0;
-    for d in op_or_digit {
+    for d in op_or_digit.into_iter() {
         match d {
             OpOrDigit::Op(op) => current_op = op,
             OpOrDigit::Digit(n) => match current_op {
@@ -140,7 +139,7 @@ let file_chars = BufReader::new(File::open("examples/opOrDigit.txt").expect("ope
         }
     });
 // Convert to something implementing `Tokens`
-let mut tokens = StreamTokens::into_tokens(file_chars);
+let mut tokens = StreamTokens::new(file_chars);
 // Parse
 assert_eq!(eval(&mut tokens), 140);
 // Check that parse encountered no io errors.

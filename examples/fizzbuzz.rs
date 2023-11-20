@@ -38,7 +38,7 @@ fn main() {
     let stdin = stdin().bytes().map(Result::unwrap);
     // Can't use `stdin.clone()` because it is over a stream of values that are not in memory.
     // If we could clone then one of the other yap token types would be preferable.
-    let mut tokens = StreamTokens::into_tokens(stdin);
+    let mut tokens = StreamTokens::new(stdin);
     let mut parsed_result = Vec::new();
 
     println!("Lets play fizzbuzz! Enter a number. If it is divisible by three I'll say \"fizz\", \
@@ -54,17 +54,21 @@ if it is divisible by five I'll say \"buzz\", and if it is divisible by both 3 a
     // `StreamTokens` handles buffering and `Bytes<Stdin>` handles blocking in this case.
     // The general form is some iterator over new input and wrapping that in `StreamTokens`
     // to make that stream of items parseable.
-    for num in tokens.sep_by(
-        |t| {
-            Some(
-                t.tokens_while(|x| x.is_ascii_digit())
-                    .map(|x| x as char)
-                    .collect::<String>()
-                    .parse::<u32>(),
-            )
-        },
-        |t| line_ending(t).is_some(),
-    ) {
+    for num in tokens
+        .sep_by(
+            |t| {
+                Some(
+                    t.take_while(|x| x.is_ascii_digit())
+                        .into_iter()
+                        .map(|x| x as char)
+                        .collect::<String>()
+                        .parse::<u32>(),
+                )
+            },
+            |t| line_ending(t).is_some(),
+        )
+        .into_iter()
+    {
         match num {
             Ok(x) => {
                 let res = fizzbuzz(x);
