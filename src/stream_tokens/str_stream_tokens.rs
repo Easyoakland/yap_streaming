@@ -94,7 +94,7 @@ where
     {
         // Fill rest of buffer with the wrapped stream before parsing everything.
         let from = self.location();
-        while let Some(_) = self.0.next() {}
+        while self.0.next().is_some() {}
         // Parse everything.
         let res = self.0.buffer.elements[from.cursor - self.0.buffer.oldest_elem_cursor..].parse();
         // Reset location on error.

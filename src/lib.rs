@@ -138,6 +138,7 @@ let file_chars = BufReader::new(File::open("examples/opOrDigit.txt").expect("ope
             }
         }
     });
+
 // Convert to something implementing `Tokens`.
 // If parsing a stream not of `char` use [`yap_streaming::StreamTokens`] instead.
 let mut tokens = StrStreamTokens::new(file_chars);
