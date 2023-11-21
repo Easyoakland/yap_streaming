@@ -8,7 +8,7 @@ use yap::{IntoTokens, TokenLocation, Tokens};
 
 pub(crate) mod str_stream_tokens;
 
-/// Helper trait for defining buffers that can be used to store items in [`StreamTokens`] for [`Token::set_location()`] resets
+/// Helper trait for defining buffers that can be used to store items in [`StreamTokens`] for [`Tokens::set_location()`] resets
 pub trait StreamTokensBuffer<Item>: Default {
     /// Remove n items from the front of the buffer. If buffer has less than `n` elements clear the buffer.
     fn drain_front(&mut self, n: usize);
