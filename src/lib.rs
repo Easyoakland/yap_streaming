@@ -31,7 +31,7 @@ use yap_streaming::{
     // to get an instance of the above:
     IntoTokens,
     // Allows you to get an instance of `Tokens` that supports streams:
-    StreamTokens,
+    StrStreamTokens,
     // This trait has all of the parsing methods on it:
     Tokens,
 };
@@ -138,8 +138,9 @@ let file_chars = BufReader::new(File::open("examples/opOrDigit.txt").expect("ope
             }
         }
     });
-// Convert to something implementing `Tokens`
-let mut tokens = StreamTokens::new(file_chars);
+// Convert to something implementing `Tokens`.
+// If parsing a stream not of `char` use [`yap_streaming::StreamTokens`] instead.
+let mut tokens = StrStreamTokens::new(file_chars);
 // Parse
 assert_eq!(eval(&mut tokens), 140);
 // Check that parse encountered no io errors.
@@ -147,7 +148,11 @@ assert!(io_err.is_none());
 # }
 ```
 */
-#![deny(missing_docs)]
+#![deny(
+    missing_copy_implementations,
+    missing_debug_implementations,
+    missing_docs
+)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -155,5 +160,5 @@ extern crate alloc;
 #[cfg(feature = "alloc")]
 mod stream_tokens;
 #[cfg(feature = "alloc")]
-pub use stream_tokens::{StreamTokens, StreamTokensLocation};
+pub use stream_tokens::{str_stream_tokens::StrStreamTokens, StreamTokens, StreamTokensLocation};
 pub use yap::{IntoTokens, TokenLocation, Tokens};

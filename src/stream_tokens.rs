@@ -1,36 +1,64 @@
 use alloc::{collections::VecDeque, rc::Rc, vec::Vec};
-use core::{cell::RefCell, fmt::Debug, iter::Iterator};
+use core::{
+    cell::RefCell,
+    fmt::Debug,
+    iter::{Fuse, Iterator},
+};
 use yap::{IntoTokens, TokenLocation, Tokens};
 
-/// Buffer over items of an iterator.
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct Buffer<Item> {
-    oldest_elem_id: usize,
-    elements: VecDeque<Option<Item>>,
+pub(crate) mod str_stream_tokens;
+
+/// Helper trait for defining buffers that can be used to store items in [`StreamTokens`] for [`Token::set_location()`] resets
+pub trait StreamTokensBuffer<Item>: Default {
+    /// Remove n items from the front of the buffer. If buffer has less than `n` elements clear the buffer.
+    fn drain_front(&mut self, n: usize);
+    /// Add a new item to the back of the buffer.
+    fn push(&mut self, item: Item);
+    /// Get the item at the given `idx` if it exists.
+    fn get(&self, idx: usize) -> Option<Item>;
 }
 
-// Manual impl because Item: !Default also works.
-impl<Item> Default for Buffer<Item> {
-    fn default() -> Self {
-        Self {
-            oldest_elem_id: Default::default(),
-            elements: Default::default(),
+impl<Item: core::clone::Clone> StreamTokensBuffer<Item> for VecDeque<Item> {
+    fn drain_front(&mut self, n: usize) {
+        if n > self.len() {
+            self.clear()
+        } else {
+            // TODO test this vs self.drain(..n) performance
+            for _ in 0..n {
+                self.pop_front();
+            }
         }
+    }
+
+    fn push(&mut self, item: Item) {
+        self.push_back(item)
+    }
+
+    fn get(&self, idx: usize) -> Option<Item> {
+        self.get(idx).cloned()
     }
 }
 
-/// Enables parsing a stream of values from an iterator that can't itself be cloned.
-/// In order to be able to rewind the iterator it must save values since the oldest not [`Drop`]ed [`StreamTokensLocation`]
+/// Buffer over items of an iterator.
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+struct Buffer<Buf> {
+    oldest_elem_cursor: usize,
+    elements: Buf,
+}
+
+/// Enables parsing a stream of values from a [`Fuse`]d iterator that can't itself be cloned.
+/// In order to be able to rewind the iterator it must save values since the oldest not [`Drop`]ed [`StreamTokensLocation`] into `Buf`.
+///
+/// See [`Self::new`] for example usage.
 #[derive(Debug)]
-pub struct StreamTokens<I>
+pub struct StreamTokens<I, Buf>
 where
     I: Iterator,
 {
-    iter: I,
+    iter: Fuse<I>,
     cursor: usize,
-    /// Buffer of items and the id of the oldest item in the buffer.
-    buffer: Buffer<I::Item>,
-    /// Sorted list of the oldest items needed per location
+    buffer: Buffer<Buf>,
+    /// Sorted list of the oldest items needed per live location
     checkout: Rc<RefCell<Vec<usize>>>,
 }
 
@@ -87,14 +115,26 @@ impl TokenLocation for StreamTokensLocation {
     }
 }
 
-impl<I: Iterator> StreamTokens<I>
+impl<I: Iterator, Buf: Default> StreamTokens<I, Buf> {
+    /// Generic new function allowing arbitrary buffer.
+    /// Exists because type inference is not smart enough to try the default generic when calling [`Self::new`] so `new` hardcodes the default.
+    /// See <https://faultlore.com/blah/defaults-affect-inference/#default-type-parameters>
+    pub(crate) fn _new(iter: I) -> Self {
+        StreamTokens {
+            // Store a fused iterator so the buffer can safely be of `Item` instead of `Option<Item>`
+            iter: iter.fuse(),
+            cursor: Default::default(),
+            buffer: Default::default(),
+            checkout: Default::default(),
+        }
+    }
+}
+
+impl<I: Iterator> StreamTokens<I, VecDeque<I::Item>>
 where
     I::Item: Clone,
 {
-    /// We can't define a blanket impl for [`IntoTokens`] on all `impl Iterator<Item: Clone>` without
-    /// [specialization](https://rust-lang.github.io/rfcs/1210-impl-specialization.html).
-    ///
-    /// Instead, use this method to convert a suitable iterator into [`Tokens`].
+    /// Use this method to convert a suitable iterator into [`Tokens`].
     ///
     /// # Example
     ///
@@ -113,19 +153,15 @@ where
     /// assert!(tokens.tokens("world".chars()));
     /// ```
     pub fn new(iter: I) -> Self {
-        StreamTokens {
-            iter,
-            cursor: Default::default(),
-            buffer: Default::default(),
-            checkout: Default::default(),
-        }
+        Self::_new(iter)
     }
 }
 
-impl<I> Tokens for StreamTokens<I>
+impl<I, Buffer> Tokens for StreamTokens<I, Buffer>
 where
     I: Iterator,
-    I::Item: Clone + Debug,
+    I::Item: Clone,
+    Buffer: StreamTokensBuffer<I::Item>,
 {
     type Item = I::Item;
 
@@ -140,10 +176,9 @@ where
             if let Some(val) = self
                 .buffer
                 .elements
-                .get(self.cursor - 1 - self.buffer.oldest_elem_id)
-                .cloned()
+                .get(self.cursor - 1 - self.buffer.oldest_elem_cursor)
             {
-                return val;
+                return Some(val);
             }
         }
 
@@ -155,21 +190,20 @@ where
                 Some(&x) => x.min(self.cursor),
                 None => self.cursor,
             };
-            while (self.buffer.oldest_elem_id < min) && (!self.buffer.elements.is_empty()) {
-                self.buffer.elements.pop_front();
-                self.buffer.oldest_elem_id += 1;
-            }
+            let delta = min - self.buffer.oldest_elem_cursor;
+            self.buffer.elements.drain_front(delta);
+            self.buffer.oldest_elem_cursor = min;
         }
 
         // Handle cache miss
         {
-            let next = self.iter.next();
+            let next = self.iter.next()?;
             // Don't save to buffer if no locations exist which might need the value again
             if checkout.is_empty() {
-                next
+                Some(next)
             } else {
-                self.buffer.elements.push_back(next.clone());
-                next
+                self.buffer.elements.push(next.clone());
+                Some(next)
             }
         }
     }
@@ -197,10 +231,11 @@ where
     }
 }
 
-impl<I> IntoTokens<I::Item> for StreamTokens<I>
+impl<I, Buf> IntoTokens<I::Item> for StreamTokens<I, Buf>
 where
     I: Iterator,
     I::Item: Clone + core::fmt::Debug,
+    Buf: StreamTokensBuffer<I::Item>,
 {
     type Tokens = Self;
     fn into_tokens(self) -> Self {
@@ -213,7 +248,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "alloc")]
     fn stream_tokens_sanity_check() {
         // In reality, one should always prefer to use StrTokens for strings:
         let chars: &mut dyn Iterator<Item = char> = &mut "hello \n\t world".chars();
@@ -237,36 +271,25 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "alloc")]
-    fn non_fused() {
-        let mut it1 = "hello".chars();
-        let mut it2 = "world".chars();
-        let mut once = true;
-        let it = core::iter::from_fn(|| {
-            if let Some(x) = it1.next() {
-                Some(x)
-            } else if once {
-                once = false;
-                None
-            } else {
-                it2.next()
-            }
-        });
-        let mut tokens = StreamTokens::new(it);
+    fn str_stream_tokens_sanity_check() {
+        // In reality, one should always prefer to use StrTokens for strings:
+        let chars: &mut dyn Iterator<Item = char> = &mut "hello \n\t world".chars();
+        // Can't `chars.clone()` so:
+        let mut tokens = crate::StrStreamTokens::new(chars);
+
+        let loc = tokens.location();
         assert!(tokens.tokens("hello".chars()));
 
-        let none_next = tokens.location();
-        assert_eq!(tokens.next(), None);
-        assert!(tokens.tokens("world".chars()));
-        assert_eq!(tokens.next(), None);
-        assert_eq!(tokens.next(), None);
-        assert_eq!(tokens.next(), None);
+        tokens.set_location(loc.clone());
+        assert!(tokens.tokens("hello".chars()));
 
-        tokens.set_location(none_next);
-        assert_eq!(tokens.next(), None);
+        tokens.skip_while(|c| c.is_whitespace());
+
         assert!(tokens.tokens("world".chars()));
-        assert_eq!(tokens.next(), None);
-        assert_eq!(tokens.next(), None);
-        assert_eq!(tokens.next(), None);
+
+        tokens.set_location(loc);
+        assert!(tokens.tokens("hello \n\t world".chars()));
+
+        assert_eq!(None, tokens.next())
     }
 }

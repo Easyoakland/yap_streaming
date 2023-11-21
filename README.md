@@ -31,7 +31,7 @@ use yap_streaming::{
     // to get an instance of the above:
     IntoTokens,
     // Allows you to get an instance of `Tokens` that supports streams:
-    StreamTokens,
+    StrStreamTokens,
     // This trait has all of the parsing methods on it:
     Tokens,
 };
@@ -138,8 +138,9 @@ let file_chars = BufReader::new(File::open("examples/opOrDigit.txt").expect("ope
             }
         }
     });
-// Convert to something implementing `Tokens`
-let mut tokens = StreamTokens::new(file_chars);
+// Convert to something implementing `Tokens`.
+// If parsing a stream not of `char` use [`yap_streaming::StreamTokens`] instead.
+let mut tokens = StrStreamTokens::new(file_chars);
 // Parse
 assert_eq!(eval(&mut tokens), 140);
 // Check that parse encountered no io errors.
