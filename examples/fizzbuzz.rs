@@ -15,14 +15,14 @@ fn line_ending(tokens: &mut impl Tokens<Item = u8>) -> Option<&'static str> {
 enum FizzBuzz {
     Fizz,
     Buzz,
-    FizzBuzz,
+    Both,
     Neither,
 }
 
 /// Converts number to appropriate fizzbuzz type.
 fn fizzbuzz(x: u32) -> FizzBuzz {
     if x % 5 == 0 && x % 3 == 0 {
-        FizzBuzz::FizzBuzz
+        FizzBuzz::Both
     } else if x % 3 == 0 {
         FizzBuzz::Fizz
     } else if x % 5 == 0 {
@@ -58,7 +58,7 @@ if it is divisible by five I'll say \"buzz\", and if it is divisible by both 3 a
         .sep_by(
             |t| {
                 Some(
-                    t.take_while(|x| x.is_ascii_digit())
+                    t.take_while(u8::is_ascii_digit)
                         .into_iter()
                         .map(|x| x as char)
                         .collect::<String>()
@@ -72,8 +72,8 @@ if it is divisible by five I'll say \"buzz\", and if it is divisible by both 3 a
         match num {
             Ok(x) => {
                 let res = fizzbuzz(x);
-                println!("{:?}", res);
-                parsed_result.push(res)
+                println!("{res:?}");
+                parsed_result.push(res);
             }
             Err(_) => println!("Ending parse on invalid u64"),
         }

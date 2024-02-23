@@ -21,7 +21,7 @@ pub trait StreamTokensBuffer<Item>: Default {
 impl<Item: core::clone::Clone> StreamTokensBuffer<Item> for VecDeque<Item> {
     fn drain_front(&mut self, n: usize) {
         if n >= self.len() {
-            self.clear()
+            self.clear();
         } else {
             // TODO test this vs self.drain(..n) performance
             for _ in 0..n {
@@ -31,7 +31,7 @@ impl<Item: core::clone::Clone> StreamTokensBuffer<Item> for VecDeque<Item> {
     }
 
     fn push(&mut self, item: Item) {
-        self.push_back(item)
+        self.push_back(item);
     }
 
     fn get(&self, idx: usize) -> Option<Item> {
@@ -267,7 +267,7 @@ mod tests {
         tokens.set_location(loc);
         assert!(tokens.tokens("hello \n\t world".chars()));
 
-        assert_eq!(None, tokens.next())
+        assert_eq!(None, tokens.next());
     }
 
     #[test]
@@ -290,6 +290,6 @@ mod tests {
         tokens.set_location(loc);
         assert!(tokens.tokens("hello \n\t world".chars()));
 
-        assert_eq!(None, tokens.next())
+        assert_eq!(None, tokens.next());
     }
 }

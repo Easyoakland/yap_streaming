@@ -15,14 +15,14 @@ pub struct StrStreamTokens<
 impl StreamTokensBuffer<char> for String {
     fn drain_front(&mut self, n: usize) {
         if n >= self.len() {
-            self.clear()
+            self.clear();
         } else {
             self.drain(..n).for_each(drop);
         }
     }
 
     fn push(&mut self, item: char) {
-        self.push(item)
+        self.push(item);
     }
 
     fn get(&self, idx: usize) -> Option<char> {
@@ -80,7 +80,7 @@ where
     }
 
     fn set_location(&mut self, location: Self::Location) {
-        self.0.set_location(location)
+        self.0.set_location(location);
     }
 
     fn is_at_location(&self, location: &Self::Location) -> bool {
@@ -99,7 +99,7 @@ where
         let res = self.0.buffer.elements[from.cursor - self.0.buffer.oldest_elem_cursor..].parse();
         // Reset location on error.
         if res.is_err() {
-            self.set_location(from)
+            self.set_location(from);
         };
         res
     }
