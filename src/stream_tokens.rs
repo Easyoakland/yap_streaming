@@ -20,7 +20,7 @@ pub trait StreamTokensBuffer<Item>: Default {
 
 impl<Item: core::clone::Clone> StreamTokensBuffer<Item> for VecDeque<Item> {
     fn drain_front(&mut self, n: usize) {
-        if n > self.len() {
+        if n >= self.len() {
             self.clear()
         } else {
             // TODO test this vs self.drain(..n) performance

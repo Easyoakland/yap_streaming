@@ -14,7 +14,7 @@ pub struct StrStreamTokens<
 
 impl StreamTokensBuffer<char> for String {
     fn drain_front(&mut self, n: usize) {
-        if n > self.len() {
+        if n >= self.len() {
             self.clear()
         } else {
             self.drain(..n).for_each(drop);
