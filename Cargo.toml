@@ -10,6 +10,7 @@ documentation = "https://docs.rs/yap_streaming/"
 homepage = "https://github.com/Easyoakland/yap_streaming"
 license = "MIT"
 categories = ["parsing"]
+keywords = ["parser", "parser-combinators", "parsing", "streaming"]
 
 include = [
   "Cargo.toml",
